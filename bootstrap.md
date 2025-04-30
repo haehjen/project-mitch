@@ -164,3 +164,68 @@ touch tests/__init__.py
 
 Snapshot Recommendation:
 mitch_step6_project_structure_created
+
+
+---
+
+## Step 7 – USB Audio Passthrough and Output Verification
+
+This step enables and tests audio output through a USB headset device (Jabra Evolve 65) passed from the Proxmox host.
+
+### Host-Level Setup
+
+1. Shut down the MITCH VM in Proxmox.
+2. In the Proxmox UI, go to:
+   Hardware → Add → USB Device → Select Jabra Evolve 65.
+   Enable "Use USB3" if supported.
+3. Start the VM.
+
+### Inside the VM
+
+1. Confirm the USB device is present:
+   lsusb
+
+2. Install ALSA tools:
+   sudo apt update
+   sudo apt install -y alsa-utils
+
+3. Verify kernel modules loaded:
+   lsmod | grep snd_usb_audio
+
+4. Check card detection:
+   cat /proc/asound/cards
+
+   Expected:
+   0 [J65]: USB-Audio - Jabra Evolve 65
+
+5. If `aplay -l` shows "no soundcards", create an ALSA config:
+   nano ~/.asoundrc
+
+Paste this:
+
+pcm.jabra {
+    type hw
+    card 0
+    device 0
+}
+
+ctl.jabra {
+    type hw
+    card 0
+}
+
+pcm.!default jabra
+ctl.!default jabra
+
+6. Add user to audio group:
+   sudo usermod -aG audio triad
+
+7. Log out or reboot to apply group permissions.
+
+8. Test output:
+   speaker-test -c2 -t wav
+
+Expected: Alternating audio through headset confirming working output.
+
+Snapshot Recommendation:
+mitch_step7_audio_output_verified
