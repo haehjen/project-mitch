@@ -105,3 +105,33 @@ When prompted:
 
 Snapshot Recommendation:
 mitch_step4_pushed_to_github
+
+
+---
+
+## Step 5 – Install Core Python Dependencies
+
+This step installs the essential packages for MITCH’s audio, HTTP, and service functionality inside the virtual environment. These are tracked with requirements.txt.
+
+Required system dependencies (to allow building pyaudio):
+
+sudo apt update
+sudo apt install -y portaudio19-dev python3-dev build-essential
+
+Python package install (inside the venv):
+
+source ~/mitch/venv/bin/activate
+pip install pyaudio pyttsx3 requests fastapi uvicorn python-dotenv
+
+Freeze versions to file:
+
+pip freeze > requirements.txt
+
+Commit to Git:
+
+git add requirements.txt
+git commit -m "Step 5: Installed dependencies and locked versions"
+git push
+
+Snapshot Recommendation:
+mitch_step5_requirements_installed
