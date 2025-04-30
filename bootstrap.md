@@ -261,3 +261,51 @@ Next: capture a test frame or stream.
 
 Snapshot Recommendation:
 mitch_step8_webcam_attached
+
+
+---
+
+## Step 8 – USB Webcam Passthrough and Verification
+
+This step enables MITCH’s visual capability via USB webcam passthrough and confirms capture works from within the VM.
+
+### Host-Level Setup
+
+1. Shut down the MITCH VM in Proxmox.
+2. In the Proxmox UI:
+   - Go to Hardware → Add → USB Device
+   - Select your webcam
+   - Enable "Use USB3" if available
+3. Boot the VM.
+
+### Inside the VM
+
+1. SSH into the VM:
+   cd ~/mitch
+
+2. Add user to video group:
+   sudo usermod -aG video triad
+
+3. Reboot or log out and back in to apply group changes.
+
+4. Install V4L2 utilities:
+   sudo apt install -y v4l-utils
+
+5. Confirm detection:
+   v4l2-ctl --list-devices
+   ls /dev/video*
+
+   Expected:
+   - Device names like /dev/video0
+   - Webcam name in list-devices output
+
+6. Install ffmpeg for image capture:
+   sudo apt install -y ffmpeg
+
+7. Capture a single test frame:
+   ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 test.jpg
+
+   If needed, try /dev/video1 instead.
+
+Snapshot Recommendation:
+mitch_step8_webcam_verified
