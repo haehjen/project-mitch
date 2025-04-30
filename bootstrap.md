@@ -166,39 +166,39 @@ Snapshot Recommendation:
 mitch_step6_project_structure_created
 
 
+
+
 ---
 
-## Step 7 – USB Audio Passthrough and Output Verification
+## Step 7 – USB Audio Passthrough and I/O Verification
 
-This step enables and tests audio output through a USB headset device (Jabra Evolve 65) passed from the Proxmox host.
+This step enables and validates both audio output and microphone input via the Jabra Evolve 65 USB headset.
 
 ### Host-Level Setup
 
 1. Shut down the MITCH VM in Proxmox.
-2. In the Proxmox UI, go to:
-   Hardware → Add → USB Device → Select Jabra Evolve 65.
-   Enable "Use USB3" if supported.
-3. Start the VM.
+2. In the Proxmox UI:
+   - Go to Hardware → Add → USB Device
+   - Select the Jabra Evolve 65
+   - Enable "Use USB3" if available
+3. Boot the VM.
 
 ### Inside the VM
 
-1. Confirm the USB device is present:
+1. Confirm the device is visible:
    lsusb
 
 2. Install ALSA tools:
    sudo apt update
    sudo apt install -y alsa-utils
 
-3. Verify kernel modules loaded:
+3. Verify kernel modules:
    lsmod | grep snd_usb_audio
 
 4. Check card detection:
    cat /proc/asound/cards
 
-   Expected:
-   0 [J65]: USB-Audio - Jabra Evolve 65
-
-5. If `aplay -l` shows "no soundcards", create an ALSA config:
+5. Create ALSA config:
    nano ~/.asoundrc
 
 Paste this:
@@ -220,12 +220,44 @@ ctl.!default jabra
 6. Add user to audio group:
    sudo usermod -aG audio triad
 
-7. Log out or reboot to apply group permissions.
+7. Log out or reboot.
 
-8. Test output:
+8. Test speaker output:
    speaker-test -c2 -t wav
 
-Expected: Alternating audio through headset confirming working output.
+9. Test microphone input:
+   arecord -D plughw:0,0 -f cd -d 5 test.wav
+   aplay test.wav
 
 Snapshot Recommendation:
-mitch_step7_audio_output_verified
+mitch_step7_audio_io_verified
+
+
+---
+
+## Step 8 – USB Webcam Passthrough and Detection
+
+This step adds basic vision to MITCH by passing through a webcam device to the VM.
+
+### Host-Level Setup
+
+1. Shut down the MITCH VM in Proxmox.
+2. In the Proxmox UI:
+   - Go to Hardware → Add → USB Device
+   - Select your USB webcam
+   - Enable "Use USB3" if available
+3. Boot the VM.
+
+### Inside the VM
+
+1. SSH into the VM:
+   cd ~/mitch
+
+2. Confirm the webcam is detected:
+   lsusb
+   v4l2-ctl --list-devices (after installing v4l-utils)
+
+Next: capture a test frame or stream.
+
+Snapshot Recommendation:
+mitch_step8_webcam_attached
