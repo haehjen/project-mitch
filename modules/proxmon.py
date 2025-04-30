@@ -17,7 +17,7 @@ class ProxMonModule:
         self.running = True
         self.proxmox_url = "https://192.168.4.210:8006/api2/json"
         self.username = "root@pam"
-        self.password = "0rang3bus"
+        self.password = "#######"
         self.session = requests.Session()
         self.session.verify = False
         self.csrf_token = None
