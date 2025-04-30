@@ -135,3 +135,32 @@ git push
 
 Snapshot Recommendation:
 mitch_step5_requirements_installed
+
+
+---
+
+## Step 6 – Create Project Folder Structure
+
+This step defines the base folder layout for MITCH’s architecture.
+
+Recommended structure:
+/home/triad/mitch/
+├── core/            # System logic: dispatcher, recognizer, etc.
+├── modules/         # Optional features: TTS, weather, emotion, etc.
+├── data/            # Configs, logs, models, assets
+├── tests/           # Unit/integration tests
+├── bootstrap.md     # Build and deployment log
+├── requirements.txt
+└── README.md
+
+Commands to create:
+
+cd ~/mitch
+mkdir core modules data tests
+touch core/__init__.py
+touch modules/__init__.py
+touch data/.keep
+touch tests/__init__.py
+
+Snapshot Recommendation:
+mitch_step6_project_structure_created
