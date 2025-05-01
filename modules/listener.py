@@ -1,7 +1,7 @@
 # modules/listener.py
+
 import speech_recognition as sr
 import logging
-from modules.triad import ask_triage
 
 logger = logging.getLogger("Listener")
 
@@ -13,11 +13,11 @@ class ListenerModule:
         self.running = True
 
     def listen(self):
-        """Listen for audio and return the transcribed text."""
         try:
             with self.microphone as source:
                 logger.info("Listening for commands...")
                 audio = self.recognizer.listen(source)
+                logger.info("Captured audio")
 
             command = self.recognizer.recognize_google(audio)
             logger.info(f"Recognized command: {command}")
@@ -31,32 +31,17 @@ class ListenerModule:
             return None
 
     def run(self):
-        """Run the listener loop on a separate thread."""
         while self.running:
             command = self.listen()
             if command:
                 self.process_command(command)
 
     def process_command(self, command):
-        """Process the recognized command."""
-        if "triad" in command:
-            message = command.split("triad", 1)[1].strip()
-            if message == "help":
-                help_message = ("Available commands are: describe the room, object detection, list folder, "
-                                "create folder, read file, restart vm, get vm status.")
-                self.event_bus.emit("speak", help_message)
-            elif message:
-                logger.info(f"TRIAD activated with: {message}")
-                response = ask_triage(message)
-                if isinstance(response, dict) and "error" in response:
-                    self.event_bus.emit("speak", f"Error: {response['error']}")
-                else:
-                    description = response.get("description", "I couldn't describe that.")
-                    self.event_bus.emit("speak", description)
-            else:
-                self.event_bus.emit("speak", "Yes, House?")
+        if self.event_bus:
+            logger.info(f"Emitting speech_input: {command}")
+            self.event_bus.emit("speech_input", command)
         else:
-            logger.info(f"Ignored command: {command}")
+            logger.warning("No event bus available to emit command.")
 
     def shutdown(self):
         logger.info("Shutting down Listener Module...")

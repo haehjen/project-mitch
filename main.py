@@ -1,37 +1,49 @@
+# main.py
+
 import threading
-import time
+import signal
+import sys
+import logging
 from core.event_bus import EventBus
-from modules.tts import TTSModule
 from modules.listener import ListenerModule
-from modules.folder_access import FolderAccessModule
-from modules.proxmon import ProxMonModule
-from modules.weather import WeatherModule
+from modules.tts import TTSModule
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+)
+
+# Load event-driven modules (each subscribes to EventBus)
+import modules.interpreter
+import modules.triad
+import core.dispatcher
+import modules.proxmon
 
 def main():
-    print("Starting MITCH...")
     event_bus = EventBus()
 
-    tts_module = TTSModule(event_bus)
-    listener_module = ListenerModule(event_bus)
-    folder_access_module = FolderAccessModule(event_bus)
-    proxmon_module = ProxMonModule(event_bus)
-    weather_module = WeatherModule(event_bus)
+    # Start TTS
+    tts = TTSModule(event_bus)
+    tts_thread = threading.Thread(target=tts.run, daemon=True)
+    tts_thread.start()
 
-    modules = [tts_module, listener_module, proxmon_module, weather_module]
-    threads = []
+    # Start Listener
+    listener = ListenerModule(event_bus)
+    listener_thread = threading.Thread(target=listener.run, daemon=True)
+    listener_thread.start()
 
-    for module in modules:
-        thread = threading.Thread(target=module.run, daemon=True)
-        threads.append(thread)
-        thread.start()
+    # Handle Ctrl+C clean shutdown
+    def shutdown_handler(sig, frame):
+        print("\n[MITCH] Shutting down cleanly...")
+        listener.shutdown()
+        tts.shutdown()
+        sys.exit(0)
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Shutdown requested...exiting.")
-        for module in modules:
-            module.shutdown()
+    signal.signal(signal.SIGINT, shutdown_handler)
+
+    print("MITCH 1.0 event-driven system online. Press Ctrl+C to exit.")
+    listener_thread.join()
 
 if __name__ == "__main__":
     main()

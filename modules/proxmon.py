@@ -8,12 +8,14 @@ import json
 import os
 from threading import Thread
 from dotenv import load_dotenv
+from core.event_bus import EventBus
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger("ProxMon")
 
-# Load secrets from mitchskeys
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "mitchskeys"))
+# Load secrets
+load_dotenv("mitchskeys")
+event_bus = EventBus()
 
 class ProxMonModule:
     def __init__(self, event_bus):
@@ -27,7 +29,6 @@ class ProxMonModule:
         self.csrf_token = None
         self.ticket = None
 
-        # Ensure data directory exists for logs
         log_dir = "/home/triad/mitch/data"
         os.makedirs(log_dir, exist_ok=True)
         self.node_log_path = os.path.join(log_dir, "node_status.jsonl")
@@ -86,6 +87,7 @@ class ProxMonModule:
         while self.running:
             try:
                 self.authenticate()
+
                 nodes = self.get_nodes()
                 timestamp = time.time()
 
@@ -148,3 +150,20 @@ class ProxMonModule:
         except Exception as e:
             logger.error(f"Error fetching VM status: {e}")
             return str(e)
+
+# Event handling
+def handle_restart_vm(event):
+    vmid = event.get("vmid")
+    if vmid is not None:
+        result = proxmon.restart_vm(vmid)
+        event_bus.emit("speak", result)
+
+def handle_get_vm_status(event):
+    vmid = event.get("vmid")
+    if vmid is not None:
+        result = proxmon.get_vm_status(vmid)
+        event_bus.emit("speak", str(result))
+
+proxmon = ProxMonModule(event_bus)
+event_bus.subscribe("restart_vm", handle_restart_vm)
+event_bus.subscribe("get_vm_status", handle_get_vm_status)

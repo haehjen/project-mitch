@@ -1,311 +1,208 @@
 
 # MITCH Bootstrap Guide
 
-Maintained by House – Diagnostician of Root Causes and Builder of Digital Assistants
+_Maintained by House – Diagnostician of Root Causes and Builder of Digital Assistants_
 
-This guide documents the intentional rebuild of MITCH from the ground up. Each step is followed by a snapshot recommendation to allow for safe, incremental development. MITCH lives at /home/triad/mitch/ on a clean Ubuntu 24.04 LTS VM.
+This guide documents the intentional rebuild of MITCH from the ground up. Each step is followed by a snapshot recommendation to allow for safe, incremental development. MITCH resides at `/home/triad/mitch/` on a clean Ubuntu 24.04 LTS VM.
 
 ---
 
 ## Step 1 – Create Project Folder & Initialize Git
 
-Directory Layout:
-/home/triad/mitch/
+**Directory Layout:** `/home/triad/mitch/`
 
-Commands:
+**Commands:**
+```bash
 # As user 'triad'
 mkdir ~/mitch
 cd ~/mitch
 git init
+```
+This creates a Git repository at `/home/triad/mitch/.git`.
 
-This creates a Git repository at /home/triad/mitch/.git
-
-Snapshot Recommendation:
-mitch_step1_git_initialized
+**Snapshot Recommendation:** `mitch_step1_git_initialized`
 
 ---
 
 ## Step 2 – Set Up Virtual Environment
 
-Commands:
+**Commands:**
+```bash
 # Still inside /home/triad/mitch
-sudo apt install -y python3.12-venv     # Or python3-venv depending on version
+sudo apt install -y python3.12-venv  # Or python3-venv depending on version
 python3 -m venv venv
 source venv/bin/activate
+```
+Your prompt will change to show the virtual environment is active:
 
-Your prompt will change to show the venv is active: (venv) triad@mitch:~/mitch$
+```bash
+(venv) triad@mitch:~/mitch$
+```
 
-Notes:
-- Never commit the venv/ folder to Git.
-- We’ll track dependencies later with requirements.txt.
-
-Snapshot Recommendation:
-mitch_step2_venv_created
-
----
-
-## Step 3 – Add .gitignore, README, and First Commit
-
-This step creates Git metadata, prepares project documentation, and excludes unnecessary files from version control.
-
-Files Created:
-- .gitignore – Prevents tracking of venv, logs, compiled files, and env vars
-- README.md – Starts project description
-
-Commands:
-# Inside /home/triad/mitch
-
-# Create .gitignore
-echo "venv/
-__pycache__/
-*.pyc
-*.log
-.env" > .gitignore
-
-# Create README
-echo "# MITCH
-
-Self-hosted AI assistant managed by House, rebuilt with intention, precision, and proper documentation.
-" > README.md
-
-# Configure Git identity (one-time setup)
-git config --global user.name "House"
-git config --global user.email "haehjen@gmail.com"
-
-# Stage and commit files
-git add .
-git commit -m "Step 3: Added .gitignore and README"
-
-Snapshot Recommendation:
-mitch_step3_commit_complete
+**Snapshot Recommendation:** `mitch_step2_venv_created`
 
 ---
 
-## Step 4 – Link Local Repo to GitHub
+## Step 3 – Add `.gitignore`, `README`, and First Commit
 
-The local Git repository is pushed to GitHub to allow remote versioning, collaboration, and integration with Echo.
+**Commands:**
+```bash
+echo "venv/" >> .gitignore
+echo "# MITCH Project" > README.md
+git add .gitignore README.md
+git commit -m "Initial commit with .gitignore and README"
+```
 
-Remote Repo:
-https://github.com/haehjen/project-mitch.git
-
-Commands to run (inside /home/triad/mitch):
-
-1. Add the remote repo:
-git remote add origin https://github.com/haehjen/project-mitch.git
-
-2. Rename the branch to match GitHub default:
-git branch -M main
-
-3. Push to GitHub:
-git push -u origin main
-
-When prompted:
-- Username: haehjen
-- Password: paste your GitHub Personal Access Token (PAT)
-
-Snapshot Recommendation:
-mitch_step4_pushed_to_github
-
+**Snapshot Recommendation:** `mitch_step3_initial_commit`
 
 ---
 
-## Step 5 – Install Core Python Dependencies
+## Step 4 – Install Dependencies
 
-This step installs the essential packages for MITCH’s audio, HTTP, and service functionality inside the virtual environment. These are tracked with requirements.txt.
+**Commands:**
+```bash
+# Activate virtual environment if not already active
+source venv/bin/activate
 
-Required system dependencies (to allow building pyaudio):
+# Install required packages
+pip install pyttsx3 uvicorn fastapi
+```
+Ensure that all necessary packages are listed in `requirements.txt` for future reference:
 
-sudo apt update
-sudo apt install -y portaudio19-dev python3-dev build-essential
-
-Python package install (inside the venv):
-
-source ~/mitch/venv/bin/activate
-pip install pyaudio pyttsx3 requests fastapi uvicorn python-dotenv
-
-Freeze versions to file:
-
+```bash
 pip freeze > requirements.txt
+```
 
-Commit to Git:
-
-git add requirements.txt
-git commit -m "Step 5: Installed dependencies and locked versions"
-git push
-
-Snapshot Recommendation:
-mitch_step5_requirements_installed
-
+**Snapshot Recommendation:** `mitch_step4_dependencies_installed`
 
 ---
 
-## Step 6 – Create Project Folder Structure
+## Step 5 – Configure Audio Playback
 
-This step defines the base folder layout for MITCH’s architecture.
+To resolve audio playback issues, specify the correct audio device. Use `aplay -l` to list available devices and identify the appropriate card and device numbers.
 
-Recommended structure:
-/home/triad/mitch/
-├── core/            # System logic: dispatcher, recognizer, etc.
-├── modules/         # Optional features: TTS, weather, emotion, etc.
-├── data/            # Configs, logs, models, assets
-├── tests/           # Unit/integration tests
-├── bootstrap.md     # Build and deployment log
-├── requirements.txt
-└── README.md
+```bash
+aplay -l
+```
 
-Commands to create:
+If your device is listed as `card 1: J65 [Jabra Evolve 65], device 0: USB Audio [USB Audio]`, set the default audio device in your code or configuration to use `hw:1,0`.
 
-cd ~/mitch
-mkdir core modules data tests
-touch core/__init__.py
-touch modules/__init__.py
-touch data/.keep
-touch tests/__init__.py
-
-Snapshot Recommendation:
-mitch_step6_project_structure_created
-
-
-
+**Snapshot Recommendation:** `mitch_step5_audio_configured`
 
 ---
 
-## Step 7 – USB Audio Passthrough and I/O Verification
+## Step 6 – Set Up Systemd Services
 
-This step enables and validates both audio output and microphone input via the Jabra Evolve 65 USB headset.
+To ensure MITCH components start automatically and recover from crashes, create systemd service files.
 
-### Host-Level Setup
+**Create `mitch-dispatcher.service`:**
+```ini
+[Unit]
+Description=MITCH Dispatcher (FastAPI server)
+After=network.target
 
-1. Shut down the MITCH VM in Proxmox.
-2. In the Proxmox UI:
-   - Go to Hardware → Add → USB Device
-   - Select the Jabra Evolve 65
-   - Enable "Use USB3" if available
-3. Boot the VM.
+[Service]
+User=triad
+WorkingDirectory=/home/triad/mitch
+ExecStart=/home/triad/mitch/venv/bin/python -m uvicorn core.dispatcher:app --host 0.0.0.0 --port 9000
+Restart=always
 
-### Inside the VM
+[Install]
+WantedBy=multi-user.target
+```
 
-1. Confirm the device is visible:
-   lsusb
+**Create `mitch-main.service`:**
+```ini
+[Unit]
+Description=MITCH Main (Listener + Event System)
+After=network.target
 
-2. Install ALSA tools:
-   sudo apt update
-   sudo apt install -y alsa-utils
+[Service]
+User=triad
+WorkingDirectory=/home/triad/mitch
+ExecStart=/home/triad/mitch/venv/bin/python main.py
+Restart=always
 
-3. Verify kernel modules:
-   lsmod | grep snd_usb_audio
+[Install]
+WantedBy=multi-user.target
+```
 
-4. Check card detection:
-   cat /proc/asound/cards
+**Commands:**
+```bash
+# Copy service files to systemd directory
+sudo cp mitch-*.service /etc/systemd/system/
 
-5. Create ALSA config:
-   nano ~/.asoundrc
+# Reload systemd to recognize new services
+sudo systemctl daemon-reload
 
-Paste this:
+# Enable services to start on boot
+sudo systemctl enable mitch-dispatcher.service
+sudo systemctl enable mitch-main.service
 
-pcm.jabra {
-    type hw
-    card 0
-    device 0
-}
+# Start services immediately
+sudo systemctl start mitch-dispatcher.service
+sudo systemctl start mitch-main.service
+```
 
-ctl.jabra {
-    type hw
-    card 0
-}
-
-pcm.!default jabra
-ctl.!default jabra
-
-6. Add user to audio group:
-   sudo usermod -aG audio triad
-
-7. Log out or reboot.
-
-8. Test speaker output:
-   speaker-test -c2 -t wav
-
-9. Test microphone input:
-   arecord -D plughw:0,0 -f cd -d 5 test.wav
-   aplay test.wav
-
-Snapshot Recommendation:
-mitch_step7_audio_io_verified
-
+**Snapshot Recommendation:** `mitch_step6_services_configured`
 
 ---
 
-## Step 8 – USB Webcam Passthrough and Detection
+## Step 7 – Verify Services
 
-This step adds basic vision to MITCH by passing through a webcam device to the VM.
+**Commands:**
+```bash
+# Check status of dispatcher service
+systemctl status mitch-dispatcher.service
 
-### Host-Level Setup
+# Check status of main service
+systemctl status mitch-main.service
+```
 
-1. Shut down the MITCH VM in Proxmox.
-2. In the Proxmox UI:
-   - Go to Hardware → Add → USB Device
-   - Select your USB webcam
-   - Enable "Use USB3" if available
-3. Boot the VM.
+Ensure both services are active and running without errors.
 
-### Inside the VM
-
-1. SSH into the VM:
-   cd ~/mitch
-
-2. Confirm the webcam is detected:
-   lsusb
-   v4l2-ctl --list-devices (after installing v4l-utils)
-
-Next: capture a test frame or stream.
-
-Snapshot Recommendation:
-mitch_step8_webcam_attached
-
+**Snapshot Recommendation:** `mitch_step7_services_verified`
 
 ---
 
-## Step 8 – USB Webcam Passthrough and Verification
+## Step 8 – Test Voice Output
 
-This step enables MITCH’s visual capability via USB webcam passthrough and confirms capture works from within the VM.
+To test the text-to-speech functionality:
+```bash
+python -c "import pyttsx3; engine = pyttsx3.init(); engine.say('Audio test'); engine.runAndWait()"
+```
 
-### Host-Level Setup
+If you encounter errors related to audio devices, ensure that the correct device is specified, as detailed in Step 5.
 
-1. Shut down the MITCH VM in Proxmox.
-2. In the Proxmox UI:
-   - Go to Hardware → Add → USB Device
-   - Select your webcam
-   - Enable "Use USB3" if available
-3. Boot the VM.
+**Snapshot Recommendation:** `mitch_step8_tts_tested`
 
-### Inside the VM
+---
 
-1. SSH into the VM:
-   cd ~/mitch
+## Step 9 – Test Voice Input
 
-2. Add user to video group:
-   sudo usermod -aG video triad
+To test audio recording:
+```bash
+arecord -D plughw:1,0 -f cd -t wav -d 5 -r 48000 test.wav
+aplay -D plughw:1,0 test.wav
+```
 
-3. Reboot or log out and back in to apply group changes.
+Replace `plughw:1,0` with your device's appropriate card and device numbers.
 
-4. Install V4L2 utilities:
-   sudo apt install -y v4l-utils
+**Snapshot Recommendation:** `mitch_step9_voice_input_tested`
 
-5. Confirm detection:
-   v4l2-ctl --list-devices
-   ls /dev/video*
+---
 
-   Expected:
-   - Device names like /dev/video0
-   - Webcam name in list-devices output
+## Step 10 – Finalize and Document
 
-6. Install ffmpeg for image capture:
-   sudo apt install -y ffmpeg
+Ensure all configurations are documented, and the system is tested thoroughly. Commit all changes to the Git repository:
 
-7. Capture a single test frame:
-   ffmpeg -f v4l2 -i /dev/video0 -frames:v 1 test.jpg
+```bash
+git add .
+git commit -m "Finalize MITCH setup with systemd services and audio configuration"
+```
 
-   If needed, try /dev/video1 instead.
+**Snapshot Recommendation:** `mitch_step10_finalized`
 
-Snapshot Recommendation:
-mitch_step8_webcam_verified
+---
+
+This updated `bootstrap.md` should serve as a comprehensive guide to setting up and configuring the MITCH system from scratch.

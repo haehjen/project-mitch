@@ -6,17 +6,18 @@ import logging
 import json
 import os
 from dotenv import load_dotenv
+from core.event_bus import EventBus
 
-# Load secrets
-load_dotenv(dotenv_path="mitchskeys")
-
-# Initialize OpenAI client
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-dispatcher_url = "http://127.0.0.1:9000/dispatch"
+# Init
+load_dotenv("mitchskeys")
+event_bus = EventBus()
 logger = logging.getLogger("TRIAD")
 
-# Tool definitions for GPT-4o function calling
+# OpenAI client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+dispatcher_url = "http://127.0.0.1:9000/dispatch"
+
+# Tool definitions
 tools = [
     {
         "type": "function",
@@ -57,10 +58,7 @@ tools = [
         "function": {
             "name": "capture_and_describe",
             "description": "Capture an image and generate a description using AI",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            },
+            "parameters": {"type": "object", "properties": {}},
             "required": []
         }
     },
@@ -69,30 +67,21 @@ tools = [
         "function": {
             "name": "object_detection",
             "description": "Capture an image and detect objects using AI",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            },
+            "parameters": {"type": "object", "properties": {}},
             "required": []
         }
     }
 ]
 
-def ask_triage(user_input: str):
-    logger.info(f"Sending input to GPT-4o: {user_input}")
+def handle_triage(user_input: str):
+    logger.info(f"Sending to GPT-4o: {user_input}")
 
     try:
         chat_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {
-                    "role": "system",
-                    "content": "You are TRIAD, a helpful assistant for House. Use tools when appropriate to take action."
-                },
-                {
-                    "role": "user",
-                    "content": user_input
-                }
+                {"role": "system", "content": "You are TRIAD, a helpful assistant for House. Use tools when appropriate."},
+                {"role": "user", "content": user_input}
             ],
             tools=tools,
             tool_choice="auto"
@@ -105,20 +94,15 @@ def ask_triage(user_input: str):
             function_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
 
-            logger.info(f"Dispatching to: {function_name} with args: {arguments}")
+            logger.info(f"Dispatching tool: {function_name} with args: {arguments}")
+            event_bus.emit("dispatch", {"function_name": function_name, "args": arguments})
 
-            result = requests.post(dispatcher_url, json={
-                "function_name": function_name,
-                "args": arguments
-            })
-
-            if result.status_code == 200:
-                return result.json()
-            else:
-                return {"error": f"Dispatcher error: {result.status_code} - {result.text}"}
-
-        return {"description": choice.message.content}
+        else:
+            event_bus.emit("speak", choice.message.content)
 
     except Exception as e:
         logger.error(f"TRIAD failed: {e}")
-        return {"description": f"Error: {e}"}
+        event_bus.emit("speak", f"Error: {e}")
+
+# Hook into the bus
+event_bus.subscribe("triad_request", handle_triage)
