@@ -7,9 +7,13 @@ import urllib3
 import json
 import os
 from threading import Thread
+from dotenv import load_dotenv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logger = logging.getLogger("ProxMon")
+
+# Load secrets from mitchskeys
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "mitchskeys"))
 
 class ProxMonModule:
     def __init__(self, event_bus):
@@ -17,16 +21,17 @@ class ProxMonModule:
         self.running = True
         self.proxmox_url = "https://192.168.4.210:8006/api2/json"
         self.username = "root@pam"
-        self.password = "#######"
+        self.password = os.getenv("PROXMOX_PASSWORD")
         self.session = requests.Session()
         self.session.verify = False
         self.csrf_token = None
         self.ticket = None
 
-        # Ensure log folder exists
-        os.makedirs("/home/mitch/logs/", exist_ok=True)
-        self.node_log_path = "/home/mitch/logs/node_status.jsonl"
-        self.vm_log_path = "/home/mitch/logs/vm_status.jsonl"
+        # Ensure data directory exists for logs
+        log_dir = "/home/triad/mitch/data"
+        os.makedirs(log_dir, exist_ok=True)
+        self.node_log_path = os.path.join(log_dir, "node_status.jsonl")
+        self.vm_log_path = os.path.join(log_dir, "vm_status.jsonl")
 
     def authenticate(self):
         auth_payload = {"username": self.username, "password": self.password}
@@ -81,18 +86,15 @@ class ProxMonModule:
         while self.running:
             try:
                 self.authenticate()
-
                 nodes = self.get_nodes()
                 timestamp = time.time()
 
-                # Collect and log node stats
                 for node in nodes:
                     node_status = self.fetch_node_status(node)
                     if node_status:
                         node_record = {"timestamp": timestamp, "node": node, "status": node_status}
                         self.log_jsonl(self.node_log_path, node_record)
 
-                    # Collect and log VM stats
                     vms = self.fetch_vm_list(node)
                     for vm in vms:
                         vmid = vm.get('vmid')
@@ -111,7 +113,7 @@ class ProxMonModule:
             except Exception as e:
                 logger.error(f"Error during ProxMon polling cycle: {e}")
 
-            time.sleep(60)  # Default polling interval
+            time.sleep(60)
 
     def shutdown(self):
         logger.info("Shutting down ProxMon Module...")

@@ -1,32 +1,31 @@
 # modules/vision_ai.py
+
 import openai
 import os
 import time
 import base64
 import requests
 from modules.vision import VisionModule
+from dotenv import load_dotenv
+
+# Load secrets
+load_dotenv(dotenv_path="mitchskeys")
 
 # Initialize OpenAI client
-client = openai.OpenAI(api_key="Open API Key")
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Imgur Client ID
-imgur_client_id = "c9fbb400c7e9968"
+imgur_client_id = os.getenv("IMGUR_CLIENT_ID")
 
 class VisionAI:
     def __init__(self):
         self.vision_module = VisionModule()
 
     async def capture_and_describe(self):
-        # Capture the image
         image_path = self.vision_module.capture_image()
-
-        # Wait to ensure filesystem is flushed
         time.sleep(2)
-
-        # Upload the image to Imgur
         image_url = self.upload_to_imgur(image_path)
 
-        # Now ask OpenAI to describe it
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -42,19 +41,13 @@ class VisionAI:
             temperature=0.7
         )
 
-        description = response.choices[0].message.content
-        return description
+        return response.choices[0].message.content
 
     async def detect_objects(self):
-        # Capture the image
         image_path = self.vision_module.capture_image()
-
         time.sleep(2)
-
-        # Upload the image to Imgur
         image_url = self.upload_to_imgur(image_path)
 
-        # Ask OpenAI to detect objects
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -70,13 +63,12 @@ class VisionAI:
             temperature=0.7
         )
 
-        objects = response.choices[0].message.content
-        return objects
+        return response.choices[0].message.content
 
     def upload_to_imgur(self, image_path):
         with open(image_path, "rb") as f:
             image_data = base64.b64encode(f.read())
-        
+
         headers = {
             "Authorization": f"Client-ID {imgur_client_id}"
         }
@@ -88,7 +80,6 @@ class VisionAI:
         response = requests.post("https://api.imgur.com/3/image", headers=headers, data=data)
 
         if response.status_code == 200:
-            imgur_link = response.json()["data"]["link"]
-            return imgur_link
+            return response.json()["data"]["link"]
         else:
             raise RuntimeError(f"Imgur upload failed: {response.text}")

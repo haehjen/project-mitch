@@ -4,9 +4,14 @@ import requests
 import openai
 import logging
 import json
+import os
+from dotenv import load_dotenv
 
-# Initialize OpenAI client (v1 syntax)
-client = openai.OpenAI(api_key="Open Api Key")
+# Load secrets
+load_dotenv(dotenv_path="mitchskeys")
+
+# Initialize OpenAI client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 dispatcher_url = "http://127.0.0.1:9000/dispatch"
 logger = logging.getLogger("TRIAD")
@@ -95,7 +100,6 @@ def ask_triage(user_input: str):
 
         choice = chat_response.choices[0]
 
-        # If GPT-4 wants to call a function
         if choice.finish_reason == "tool_calls":
             tool_call = choice.message.tool_calls[0]
             function_name = tool_call.function.name
@@ -113,7 +117,6 @@ def ask_triage(user_input: str):
             else:
                 return {"error": f"Dispatcher error: {result.status_code} - {result.text}"}
 
-        # Otherwise, just reply normally
         return {"description": choice.message.content}
 
     except Exception as e:
